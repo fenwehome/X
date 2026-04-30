@@ -207,9 +207,9 @@
 ##NAS部署直播
 {"name": "🏄‍♂️┃serv00「直播」","type": 0,"ua": "okhttp","url": "https://alantang.serv00.net/m3u/jtv.m3u"},
 {"name": "🐍┃tangtang「直播」","type": 0,"ua": "okhttp","url": "https://tangtang.ggff.net/m3u/jtv.m3u"},
-{"name": "🥷┃JunTV「cloudflare」","type": 0,"ua": "okhttp","url": "https://tv.junchao.qzz.io"},
-{"name": "🥷┃mitv「cloudflare」","type": 0,"ua": "okhttp","url": "https://tv.tangtang.us.ci"},
-{"name": "🥷┃广东gdty「cloudflare」","type": 0,"ua": "okhttp","url": "https://tv.alantangtang.de5.net"},
+{"name": "🥷┃JunTV「cloudflare」","type": 0,"ua": "okhttp","url": "https://tv.junchao.qzz.io/123456"},
+{"name": "🥷┃mitv「cloudflare」","type": 0,"ua": "okhttp","url": "https://tv.tangtang.us.ci/123456"},
+{"name": "🥷┃广东gdty「cloudflare」","type": 0,"ua": "okhttp","url": "https://tv.alantangtang.de5.net/123456"},
 {"name": "🥷┃央视卫视zubo「cloudflare」","type": 0,"ua": "okhttp","url": "http://tv.tangtang.ggff.net"},
 {"name": "🥷┃trams「NAS」","type": 0,"ua": "okhttp","url": "http://192.168.110.32:50085/sub?hr8FqbMm=m3u"},
 {"name": "🥷┃trams「NAS」","type": 0,"ua": "okhttp","url": "http://192.168.110.32:8080/tv?token=bd9344bf40238521"},
