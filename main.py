@@ -71,24 +71,47 @@ if not os.path.exists(output_folder):
 # 缓存文件夹和文件
 cache_folder = "./live/cache"
 cache_file = os.path.join(cache_folder, "url_cache.json")
-cache_valid_days = 7  # 缓存有效期（天）
+cache_valid_days = 7          # 缓存有效期（天）
+MAX_CACHE_ENTRIES = 100       # 最大缓存条目数，超过则删除最旧的
 
 # 确保缓存文件夹存在
 if not os.path.exists(cache_folder):
     os.makedirs(cache_folder)
 
-# 加载缓存
+# 加载缓存（自动清理过期条目）
 def load_cache():
     if os.path.exists(cache_file):
         try:
             with open(cache_file, "r", encoding="utf-8") as f:
-                return json.load(f)
+                cache = json.load(f)
+            # 清理过期的缓存条目
+            expired_hashes = []
+            for url_hash, entry in cache.get("urls", {}).items():
+                timestamp = datetime.fromisoformat(entry.get("timestamp", datetime.now().isoformat()))
+                if (datetime.now() - timestamp).days >= cache_valid_days:
+                    expired_hashes.append(url_hash)
+            for h in expired_hashes:
+                del cache["urls"][h]
+                logging.info(f"删除过期缓存: {h}")
+            # 更新缓存时间戳
+            cache["timestamp"] = datetime.now().isoformat()
+            if expired_hashes:
+                save_cache(cache)
+            return cache
         except Exception as e:
             logging.error(f"加载缓存失败: {e}")
     return {"urls": {}, "timestamp": datetime.now().isoformat()}
 
-# 保存缓存
+# 保存缓存（自动限制条目数量）
 def save_cache(cache):
+    # 限制缓存条目数量：按 timestamp 排序，保留最新的 MAX_CACHE_ENTRIES 条
+    urls_dict = cache.get("urls", {})
+    if len(urls_dict) > MAX_CACHE_ENTRIES:
+        # 将条目按 timestamp 排序，保留最新的
+        sorted_items = sorted(urls_dict.items(), key=lambda x: x[1].get("timestamp", ""), reverse=True)
+        keep_items = dict(sorted_items[:MAX_CACHE_ENTRIES])
+        cache["urls"] = keep_items
+        logging.info(f"缓存条目过多，已裁剪至 {MAX_CACHE_ENTRIES} 条")
     cache["timestamp"] = datetime.now().isoformat()
     try:
         with open(cache_file, "w", encoding="utf-8") as f:
@@ -96,7 +119,7 @@ def save_cache(cache):
     except Exception as e:
         logging.error(f"保存缓存失败: {e}")
 
-# 检查缓存是否有效
+# 检查缓存是否有效（基于时间）
 def is_cache_valid(cache):
     if not cache:
         return False
@@ -154,7 +177,9 @@ async def fetch_channels(session, url, cache):
     url_hash = calculate_hash(url)
     if url_hash in cache["urls"]:
         cached_entry = cache["urls"][url_hash]
-        if datetime.now() - datetime.fromisoformat(cached_entry["timestamp"]) <= timedelta(days=cache_valid_days):
+        # 检查条目是否过期（单独判断，因为整个缓存可能未过期但个别条目过期）
+        entry_timestamp = datetime.fromisoformat(cached_entry.get("timestamp", datetime.now().isoformat()))
+        if (datetime.now() - entry_timestamp).days < cache_valid_days:
             logging.info(f"从缓存加载: {url}")
             channels = OrderedDict(cached_entry["channels"])
             unique_urls = set(cached_entry["unique_urls"])
@@ -177,7 +202,7 @@ async def fetch_channels(session, url, cache):
                     channels.update(parse_txt_lines(lines, unique_urls))
 
                 if channels:
-                    # 更新缓存
+                    # 更新缓存（会自动清理旧条目）
                     cache["urls"][url_hash] = {
                         "url": url,
                         "channels": dict(channels),
@@ -261,7 +286,7 @@ def find_similar_name(target_name, name_list):
 async def filter_source_urls(template_file):
     template_channels = parse_template(template_file)
     source_urls = config.source_urls
-    cache = load_cache()
+    cache = load_cache()  # 加载缓存（自动清理过期）
 
     all_channels = OrderedDict()
     async with aiohttp.ClientSession() as session:
@@ -312,7 +337,7 @@ def updateChannelUrlsM3U(channels, template_channels, cache):
     written_urls_ipv6 = set()
     url_changes = {"added": [], "removed": [], "modified": []}
 
-    # 检查缓存中的URL状态
+    # 检查缓存中的URL状态（仅当整个缓存有效时）
     if is_cache_valid(cache):
         previous_urls = {}
         for url_hash, entry in cache["urls"].items():
@@ -435,7 +460,6 @@ def add_url_suffix(url, index, total_urls, ip_version):
     return f"{base_url}{suffix}"
 
 def write_to_files(f_m3u, f_txt, category, channel_name, index, new_url):
-    # 减少不必要的元数据
     f_m3u.write(f"#EXTINF:-1 group-title=\"{category}\",{channel_name}\n")
     f_m3u.write(new_url + "\n")
     f_txt.write(f"{channel_name},{new_url}\n")
